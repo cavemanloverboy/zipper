@@ -1,0 +1,31 @@
+[package]
+name = "zipper"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "zipper"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.25.0"
+anchor-spl = "0.25.0"
+seq-macro = "0.3.1"
+# zipper_accounts = {path = "../../accounts"}
+# zipper_instructions = {path = "../../instructions"}
+zipper_macros = {path = "../../macros"}
+
+[dev-dependencies]
+anchor-client = "0.25.0"
+anyhow = "1.0.65"
+rand = "0.7.3"
+shellexpand = "2.1.2"
+spl-associated-token-account = "1.0.5"
