@@ -1,6 +1,6 @@
 [package]
 name = "zipper"
-version = "0.1.0"
+version = "1.0.0"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -19,7 +19,7 @@ default = []
 anchor-lang = "0.25.0"
 anchor-spl = "0.25.0"
 seq-macro = "0.3.1"
-zipper_macros = {path = "../../macros"}
+zipper_macros = "1.0.0"
 
 [dev-dependencies]
 anchor-client = "0.25.0"
