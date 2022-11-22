@@ -19,8 +19,6 @@ default = []
 anchor-lang = "0.25.0"
 anchor-spl = "0.25.0"
 seq-macro = "0.3.1"
-# zipper_accounts = {path = "../../accounts"}
-# zipper_instructions = {path = "../../instructions"}
 zipper_macros = {path = "../../macros"}
 
 [dev-dependencies]

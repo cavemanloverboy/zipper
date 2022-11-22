@@ -5,6 +5,9 @@ skip-lint = false
 [programs.localnet]
 zipper = "Z1PctcuGZfcLVPWSCgi9nwhGNpvqH1AamRTEqSBzJoL"
 
+[programs.mainnet]
+zipper = "Z1PrGTgZp5Q1WKewjF4XaTW2nHvNxvbxs7qW8p9qz5U"
+
 [registry]
 url = "https://api.apr.dev"
 
