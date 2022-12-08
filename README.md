@@ -16,7 +16,7 @@ use anchor_client::{
 };
 use zipper::{AccountZipper, ID as ZIPPER_PROGRAM_ID};
 
-// A sketchy ix that needs to mutable access to user
+// A sketchy ix that needs mutable access to user
 // token accounts, for whatever reason
 let sketchy_ix: Instruction = construct_sketchy_ix(/* todo */);
 
