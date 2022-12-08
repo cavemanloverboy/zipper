@@ -14,7 +14,7 @@ use anchor_client::{
     solana_sdk::instruction::Instruction,
     Client, Cluster, Program
 };
-use zipper::ID as ZIPPER_PROGRAM_ID;
+use zipper::{AccountZipper, ID as ZIPPER_PROGRAM_ID};
 
 // A sketchy ix that needs to mutable access to five
 // token accounts, for whatever reason
@@ -28,19 +28,14 @@ let client: Client::new_with_options(
     );
 let program: Program = client.program(ZIPPER_PROGRAM_ID);
 let zipper_ix: Instruction = program.request()
-    .accounts(zipper::accounts::TokenAccounts5 {
-        user: user.keypair.pubkey(),
-        token_account_1: user.ata,
-        token_account_2: user.ata2,
-        token_account_1: user.ata3,
-        token_account_2: user.ata4,
-        token_account_2: user.ata5,
+    .accounts(AccountZipper::zip_accounts(&[
+            user.keypair.pubkey(),
+            user.ata,
+            user.ata2,
+        ]))
+    .args(zipper::instruction::Verify {
+        balances: todo!(),
     })
-    .args(
-        zipper::instruction::Verify5 {
-            balances: todo!("SOL + 5 token account expected or simulated balances")
-        }
-    )
     .instructions()
     .unwrap()
     .remove(0);
