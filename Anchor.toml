@@ -3,7 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-zipper = "Z1PctcuGZfcLVPWSCgi9nwhGNpvqH1AamRTEqSBzJoL"
+zipper = "Z1PrGTgZp5Q1WKewjF4XaTW2nHvNxvbxs7qW8p9qz5U"
+
+[programs.testnet]
+zipper = "Z1PrGTgZp5Q1WKewjF4XaTW2nHvNxvbxs7qW8p9qz5U"
 
 [programs.mainnet]
 zipper = "Z1PrGTgZp5Q1WKewjF4XaTW2nHvNxvbxs7qW8p9qz5U"
@@ -16,4 +19,4 @@ cluster = "localnet"
 wallet = "./dev_key.json"
 
 [scripts]
-test = "cargo test --package zipper --test spoof -- spoof --exact --nocapture"
+test = "cargo test --package zipper --test spoof -- l spoof --exact --nocapture"

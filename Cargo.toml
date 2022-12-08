@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "programs/*",
-    "macros",
+    # "macros",
 ]
 
 [profile.release]

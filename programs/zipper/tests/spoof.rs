@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use anchor_client::{
-    solana_client::rpc_client::RpcClient,
+    solana_client::{rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig},
     solana_sdk::{
         commitment_config::CommitmentConfig,
         hash::Hash,
@@ -18,7 +18,7 @@ use anchor_lang::prelude::Pubkey;
 use anchor_spl::token::{spl_token::instruction::transfer, Mint, ID as TOKEN_PROGRAM_ID};
 use anyhow::Result;
 use rand::rngs::OsRng;
-use zipper::ID as PROGRAM_ID;
+use zipper::{AccountZipper, ID as PROGRAM_ID};
 
 const DEMO_TOKEN_DECIMALS: u8 = 6;
 const ONE_DEMO_TOKEN: u64 = 10_u64.pow(DEMO_TOKEN_DECIMALS as u32);
@@ -37,8 +37,16 @@ fn spoof() {
     let client: Client = Client::new_with_options(
         std::env::args()
             .nth(1)
-            .map(|_| Cluster::Localnet)
-            .unwrap_or(Cluster::Testnet),
+            .map(|x| match x.as_str() {
+                "m" => Cluster::Mainnet,
+                "t" => Cluster::Testnet,
+                "l" => Cluster::Localnet,
+                c => {
+                    println!("unknown cluster '{}': falling back to localnet", c);
+                    Cluster::Localnet
+                }
+            })
+            .unwrap_or(Cluster::Localnet),
         Rc::new(Keypair::from_bytes(dev_key.to_bytes().as_ref()).unwrap()),
         CommitmentConfig::processed(),
     );
@@ -124,7 +132,7 @@ fn spoof() {
     );
 
     // We will simulate the tx simulation, lol
-    const INIT_SOL_BALANCE: u64 = LAMPORTS_PER_SOL / 10;
+    const INIT_SOL_BALANCE: u64 = LAMPORTS_PER_SOL / 100;
     const COST_OF_SPL_INIT: u64 = 4_088_560;
     const TX_FEE: u64 = 5_000;
     let simulation_of_simulation = |_tx: Transaction| {
@@ -145,7 +153,7 @@ fn spoof() {
         &rugger.ata,
         &user.keypair.pubkey(),
         &[&user.keypair.pubkey()],
-        10 * ONE_DEMO_TOKEN,
+        100 * ONE_DEMO_TOKEN,
     )
     .unwrap();
     let recent_blockhash: Hash = solana_client
@@ -153,16 +161,16 @@ fn spoof() {
         .expect("failed to get latest blockhash");
 
     // However, since we zip our backpack, this transaction will fail
-    // We only need to zip the token accounts that were passed into the previous instruction
+    // We only need to zip the accounts that were passed into the previous instruction
     let zipper: Instruction = program
         .request()
-        .accounts(zipper::accounts::TokenAccounts2 {
-            user: user.keypair.pubkey(),
-            token_account_1: user.ata,
-            token_account_2: user.ata2,
-        })
-        .args(zipper::instruction::Verify2 {
-            balances: simulated_post_balances,
+        .accounts(AccountZipper::zip_accounts(&[
+            user.keypair.pubkey(),
+            user.ata,
+            user.ata2,
+        ]))
+        .args(zipper::instruction::Verify {
+            balances: simulated_post_balances.to_vec(),
         })
         .instructions()
         .unwrap()
@@ -176,10 +184,18 @@ fn spoof() {
     println!("zipped transaction");
 
     // This fails!
-    match solana_client.send_and_confirm_transaction(&zipped_transaction) {
+    match solana_client.send_transaction_with_config(
+        &zipped_transaction,
+        RpcSendTransactionConfig {
+            skip_preflight: true,
+            ..RpcSendTransactionConfig::default()
+        },
+    ) {
         Ok(sig) => println!("failed sig {sig:#?}"),
         Err(e) => println!("{e:#?}"),
     }
+    #[allow(deprecated)]
+    std::thread::sleep_ms(1000);
 
     println!("SOL Balances:");
     println!(
@@ -226,9 +242,9 @@ fn spoof() {
     );
 
     // Assert user did not get rugged
-    assert_eq!(
-        solana_client.get_balance(&user.keypair.pubkey()).unwrap(),
-        LAMPORTS_PER_SOL / 10 - COST_OF_SPL_INIT,
+    assert!(
+        solana_client.get_balance(&user.keypair.pubkey()).unwrap()
+            >= LAMPORTS_PER_SOL / 100 - COST_OF_SPL_INIT - TX_FEE,
     );
     assert_eq!(
         solana_client
@@ -249,6 +265,267 @@ fn spoof() {
         100 * ONE_DEMO_TOKEN,
     );
     println!("\nSuccess: all balances are correct! Rug Prevented!\n");
+
+    // Repeat the process, adding a random sol account as the second account
+    // (suppose the rugger was going to trade sol,
+    //  e.g. that this was an escrow or swap program of sorts)
+
+    // Now, we simluate a spoof that changes the tx to one that invokes a larger transfer
+    // In practice, this would be constructed within the runtime, but is simulated here.
+    let rug_instruction = transfer(
+        &TOKEN_PROGRAM_ID,
+        &user.ata, // source
+        &rugger.ata,
+        &user.keypair.pubkey(),
+        &[&user.keypair.pubkey()],
+        100 * ONE_DEMO_TOKEN,
+    )
+    .unwrap();
+    let recent_blockhash: Hash = solana_client
+        .get_latest_blockhash()
+        .expect("failed to get latest blockhash");
+
+    // However, since we zip our backpack, this transaction will fail
+    // We only need to zip the accounts that were passed into the previous instruction
+    let zipper: Instruction = program
+        .request()
+        .accounts(AccountZipper::zip_accounts(&[
+            user.keypair.pubkey(),
+            rugger.keypair.pubkey(), // adding this one!
+            user.ata,
+            user.ata2,
+        ]))
+        .args(zipper::instruction::Verify {
+            balances: {
+                let mut balances = simulated_post_balances.to_vec();
+                // The first tx failed
+                balances[0] -= TX_FEE;
+                // add the rugger sol balance,
+                // should be more than balance[0]
+                balances.insert(1, balances[0]);
+                balances
+            },
+        })
+        .instructions()
+        .unwrap()
+        .remove(0);
+    let zipped_transaction: Transaction = Transaction::new_signed_with_payer(
+        &[rug_instruction, zipper],
+        Some(&user.keypair.pubkey()),
+        &[&*user.keypair],
+        recent_blockhash,
+    );
+    println!("zipped transaction");
+
+    // This fails!
+    match solana_client.send_transaction_with_config(
+        &zipped_transaction,
+        RpcSendTransactionConfig {
+            skip_preflight: true,
+            ..RpcSendTransactionConfig::default()
+        },
+    ) {
+        Ok(sig) => println!("failed sig {sig:#?}"),
+        Err(e) => println!("{e:#?}"),
+    }
+    #[allow(deprecated)]
+    std::thread::sleep_ms(1000);
+
+    println!("SOL Balances:");
+    println!(
+        "    dev: {}",
+        solana_client.get_balance(&dev_key.pubkey()).unwrap()
+    );
+    println!(
+        "    usr: {}",
+        solana_client.get_balance(&user.keypair.pubkey()).unwrap()
+    );
+    println!(
+        "    rug: {}",
+        solana_client.get_balance(&rugger.keypair.pubkey()).unwrap()
+    );
+    println!("SPL1 Balances:");
+    println!(
+        "    usr: {}",
+        solana_client
+            .get_token_account_balance(&user.ata)
+            .unwrap()
+            .amount
+    );
+    println!(
+        "    rug: {}",
+        solana_client
+            .get_token_account_balance(&rugger.ata)
+            .unwrap()
+            .amount
+    );
+    println!("SPL2 Balances:");
+    println!(
+        "    usr: {}",
+        solana_client
+            .get_token_account_balance(&user.ata2)
+            .unwrap()
+            .amount
+    );
+    println!(
+        "    rug: {}",
+        solana_client
+            .get_token_account_balance(&rugger.ata2)
+            .unwrap()
+            .amount
+    );
+
+    // Assert user did not get rugged
+    assert!(
+        solana_client.get_balance(&user.keypair.pubkey()).unwrap()
+            >= LAMPORTS_PER_SOL / 100 - COST_OF_SPL_INIT - 2 * TX_FEE,
+    );
+    assert_eq!(
+        solana_client
+            .get_token_account_balance(&user.ata)
+            .unwrap()
+            .amount
+            .parse::<u64>()
+            .unwrap(),
+        100 * ONE_DEMO_TOKEN,
+    );
+    assert_eq!(
+        solana_client
+            .get_token_account_balance(&user.ata2)
+            .unwrap()
+            .amount
+            .parse::<u64>()
+            .unwrap(),
+        100 * ONE_DEMO_TOKEN,
+    );
+    println!("\nSuccess: all balances are correct! Rug Prevented Again!\n");
+
+    // Repeat the process, one final time, now with no rug
+
+    // Don't rug this time
+    let nonrug_instruction = transfer(
+        &TOKEN_PROGRAM_ID,
+        &user.ata, // source
+        &rugger.ata,
+        &user.keypair.pubkey(),
+        &[&user.keypair.pubkey()],
+        ONE_DEMO_TOKEN,
+    )
+    .unwrap();
+    let recent_blockhash: Hash = solana_client
+        .get_latest_blockhash()
+        .expect("failed to get latest blockhash");
+
+    // However, since we zip our backpack, this transaction will fail
+    // We only need to zip the accounts that were passed into the previous instruction
+    let zipper: Instruction = program
+        .request()
+        .accounts(AccountZipper::zip_accounts(&[
+            user.keypair.pubkey(),
+            user.ata,
+            user.ata2,
+        ]))
+        .args(zipper::instruction::Verify {
+            balances: {
+                let mut balances = simulated_post_balances.to_vec();
+                // The first and second tx failed
+                balances[0] -= 2 * TX_FEE;
+                balances
+            },
+        })
+        .instructions()
+        .unwrap()
+        .remove(0);
+    let zipped_transaction: Transaction = Transaction::new_signed_with_payer(
+        &[nonrug_instruction, zipper],
+        Some(&user.keypair.pubkey()),
+        &[&*user.keypair],
+        recent_blockhash,
+    );
+    println!("zipped transaction");
+
+    // This succeds!
+    match solana_client.send_transaction_with_config(
+        &zipped_transaction,
+        RpcSendTransactionConfig {
+            skip_preflight: true,
+            ..RpcSendTransactionConfig::default()
+        },
+    ) {
+        Ok(sig) => println!("success sig {sig:#?}"),
+        Err(e) => println!("{e:#?}"),
+    }
+    #[allow(deprecated)]
+    std::thread::sleep_ms(1000);
+
+    println!("SOL Balances:");
+    println!(
+        "    dev: {}",
+        solana_client.get_balance(&dev_key.pubkey()).unwrap()
+    );
+    println!(
+        "    usr: {}",
+        solana_client.get_balance(&user.keypair.pubkey()).unwrap()
+    );
+    println!(
+        "    rug: {}",
+        solana_client.get_balance(&rugger.keypair.pubkey()).unwrap()
+    );
+    println!("SPL1 Balances:");
+    println!(
+        "    usr: {}",
+        solana_client
+            .get_token_account_balance(&user.ata)
+            .unwrap()
+            .amount
+    );
+    println!(
+        "    tgt: {}",
+        solana_client
+            .get_token_account_balance(&rugger.ata)
+            .unwrap()
+            .amount
+    );
+    println!("SPL2 Balances:");
+    println!(
+        "    usr: {}",
+        solana_client
+            .get_token_account_balance(&user.ata2)
+            .unwrap()
+            .amount
+    );
+    println!(
+        "    tgt: {}",
+        solana_client
+            .get_token_account_balance(&rugger.ata2)
+            .unwrap()
+            .amount
+    );
+
+    // Assert xfer is successful
+    assert!(
+        solana_client.get_balance(&user.keypair.pubkey()).unwrap()
+            >= LAMPORTS_PER_SOL / 100 - COST_OF_SPL_INIT - 3 * TX_FEE,
+    );
+    assert_eq!(
+        solana_client
+            .get_token_account_balance(&user.ata)
+            .unwrap()
+            .amount
+            .parse::<u64>()
+            .unwrap(),
+        99 * ONE_DEMO_TOKEN,
+    );
+    assert_eq!(
+        solana_client
+            .get_token_account_balance(&user.ata2)
+            .unwrap()
+            .amount
+            .parse::<u64>()
+            .unwrap(),
+        100 * ONE_DEMO_TOKEN,
+    );
+    println!("\nSuccess: all balances are correct!\n");
 }
 
 fn get_funded_user(
@@ -264,7 +541,7 @@ fn get_funded_user(
     let fund_with_sol_tx: Transaction = system_transaction::transfer(
         dev_key,
         &user.pubkey(),
-        LAMPORTS_PER_SOL / 10,
+        LAMPORTS_PER_SOL / 100,
         solana_client
             .get_latest_blockhash()
             .expect("failed to get lastest blockhash"),
@@ -279,7 +556,7 @@ fn get_funded_user(
         solana_client
             .get_balance(&user.pubkey())
             .expect("failed to get balance"),
-        LAMPORTS_PER_SOL / 10,
+        LAMPORTS_PER_SOL / 100,
     );
     drop(fund_with_sol_tx);
 
