@@ -1,8 +1,11 @@
 [package]
 name = "solana-zipper"
 version = "1.0.0"
-description = "Created with Anchor"
 edition = "2021"
+authors = ["Cavey Cool <caveycool@gmail.com>"]
+repository = "https://github.com/cavemanloverboy/zipper"
+license = "MIT OR Apache-2.0"
+description = "This repository contains the helper attribute proc macros for the zipper smart contract on Solana"
 
 [lib]
 crate-type = ["cdylib", "lib"]
