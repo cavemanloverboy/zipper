@@ -3583,6 +3583,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-security-txt"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f14189df19df7f3977a7ea236ccae6cdc40855ab5baf1ab2796a091ef5c490d1"
+
+[[package]]
 name = "solana-stake-program"
 version = "1.10.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4687,7 +4693,7 @@ dependencies = [
 
 [[package]]
 name = "zipper"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
  "anchor-client",
  "anchor-lang",
@@ -4696,13 +4702,16 @@ dependencies = [
  "rand 0.7.3",
  "seq-macro",
  "shellexpand",
+ "solana-security-txt",
  "spl-associated-token-account",
  "zipper_macros",
 ]
 
 [[package]]
 name = "zipper_macros"
-version = "0.1.0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c2cc6f7930bf513a202eb829af784069b8a2fa141cd6de3257ef29af31c4b7c"
 dependencies = [
  "proc-macro2 1.0.47",
  "quote 1.0.21",
