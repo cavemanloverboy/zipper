@@ -3708,7 +3708,7 @@ dependencies = [
 
 [[package]]
 name = "solana-zipper"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anchor-client",
  "anchor-lang",
