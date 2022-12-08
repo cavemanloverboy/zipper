@@ -3707,6 +3707,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-zipper"
+version = "1.0.0"
+dependencies = [
+ "anchor-client",
+ "anchor-lang",
+ "anchor-spl",
+ "anyhow",
+ "rand 0.7.3",
+ "seq-macro",
+ "shellexpand",
+ "solana-security-txt",
+ "spl-associated-token-account",
+ "zipper_macros",
+]
+
+[[package]]
 name = "solana-zk-token-proof-program"
 version = "1.10.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4689,22 +4705,6 @@ dependencies = [
  "quote 1.0.21",
  "syn 1.0.103",
  "synstructure",
-]
-
-[[package]]
-name = "zipper"
-version = "2.0.0"
-dependencies = [
- "anchor-client",
- "anchor-lang",
- "anchor-spl",
- "anyhow",
- "rand 0.7.3",
- "seq-macro",
- "shellexpand",
- "solana-security-txt",
- "spl-associated-token-account",
- "zipper_macros",
 ]
 
 [[package]]
