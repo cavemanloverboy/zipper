@@ -23,7 +23,8 @@ pub mod zipper {
             ZipperError::InvalidNumberOfAccountsOrBalances
         );
 
-        // Check that all accounts provided are token accounts
+        // Check that all accounts provided are either token accounts or
+        // system program accounts and extract balances
         let actual_balances: Vec<(u64, String)> = ctx
             .remaining_accounts
             .into_iter()
@@ -76,7 +77,13 @@ pub struct VerifyAccounts {}
 pub struct AccountZipper;
 
 impl AccountZipper {
-    /// NOTE: SOL account comes first!
+    /// The accounts should be zipped in the order corresponding to the balances in `balances`
+    ///
+    /// e.g. using `zip_accounts(&[account1, account2])` with `balances = [balance1, balance2]`
+    /// results in the checks
+    /// -->
+    ///     assert!(balance(account1) >= balance1)
+    ///     assert!(balance(account2) >= balance2)
     pub fn zip_accounts(keys: &[Pubkey]) -> Vec<AccountMeta> {
         keys.into_iter()
             .map(|&pubkey| AccountMeta {
